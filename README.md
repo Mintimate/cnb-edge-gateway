@@ -2,6 +2,8 @@
 
 基于 EdgeOne Pages Node Functions 的 CNB 大模型 API 代理，完全兼容 OpenAI 标准接口，解决跨域问题。
 
+[English](./README_EN.md) | 简体中文
+
 ## 简介
 
 本项目中继 [CNB AI Chat Completions API](https://api.cnb.cool/#/operations/AiChatCompletions)，将其转换为 OpenAI 标准接口格式，方便在各种 OpenAI 兼容客户端中使用。
