@@ -102,15 +102,19 @@ export async function onRequestGet(context) {
       headers: { 'Authorization': `Bearer ${token}` },
     });
 
-    if (!cnbResponse.ok) {
-      // CNB 不支持 models 接口时返回默认响应
-      logResponse('models', 200, { type: 'fallback' });
+    // 检查响应是否为 JSON 格式
+    const contentType = cnbResponse.headers.get('Content-Type') || '';
+    const isJson = contentType.includes('application/json');
+
+    if (!cnbResponse.ok || !isJson) {
+      // CNB 不支持 models 接口或返回非 JSON 时，返回默认响应
+      logResponse('models', 200, { type: 'fallback', reason: !cnbResponse.ok ? 'not_ok' : 'not_json' });
       return new Response(
         JSON.stringify({
           object: 'list',
           data: [
             {
-              id: 'cnb-default',
+              id: 'hunyuan-2.0-instruct',
               object: 'model',
               created: Math.floor(Date.now() / 1000),
               owned_by: 'cnb',
@@ -131,8 +135,25 @@ export async function onRequestGet(context) {
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   } catch (error) {
-    logError('Internal server error', error);
-    logResponse('models', 500, { error: 'server_error' });
-    return errorResponse(`Internal server error: ${error.message}`, 'server_error', 500);
+    // 任何异常都返回 fallback 响应
+    logError('Fallback due to error', error);
+    logResponse('models', 200, { type: 'fallback', reason: 'error' });
+    return new Response(
+      JSON.stringify({
+        object: 'list',
+        data: [
+          {
+            id: 'hunyuan-2.0-instruct',
+            object: 'model',
+            created: Math.floor(Date.now() / 1000),
+            owned_by: 'cnb',
+          },
+        ],
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      }
+    );
   }
 }
