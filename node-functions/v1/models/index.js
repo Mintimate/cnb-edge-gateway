@@ -34,10 +34,16 @@ function getCnbModelsUrl(env) {
 function extractToken(request) {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader) return null;
+  let token = authHeader;
   if (authHeader.startsWith('Bearer ')) {
-    return authHeader.slice(7);
+    token = authHeader.slice(7);
   }
-  return authHeader;
+  // Remove 'sk-' prefix if present for compatibility
+  if (token.startsWith('sk-')) {
+    console.log(LOG_PREFIX, 'Compatibility: Removed sk- prefix from token (容错机制)');
+    token = token.slice(3);
+  }
+  return token;
 }
 
 /**
