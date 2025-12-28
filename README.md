@@ -4,6 +4,8 @@
 
 [English](./README_EN.md) | 简体中文
 
+镜像仓库: [CNB](https://cnb.cool/Mintimate/code-nest/cnb-edge-gateway)、[GitHub](https://github.com/Mintimate/cnb-edge-gateway)
+
 ## 简介
 
 本项目中继 [CNB AI Chat Completions API](https://api.cnb.cool/#/operations/AiChatCompletions)，将其转换为 OpenAI 标准接口格式，方便在各种 OpenAI 兼容客户端中使用。

@@ -4,6 +4,8 @@ EdgeOne Pages Node Functions Proxy for CNB LLM API, fully compatible with OpenAI
 
 English | [简体中文](./README.md)
 
+Mirror Repositories: [CNB](https://cnb.cool/Mintimate/code-nest/cnb-edge-gateway), [GitHub](https://github.com/Mintimate/cnb-edge-gateway)
+
 ## Introduction
 
 This project proxies the [CNB AI Chat Completions API](https://api.cnb.cool/#/operations/AiChatCompletions), converting it to OpenAI standard interface format for easy use with various OpenAI-compatible clients.
