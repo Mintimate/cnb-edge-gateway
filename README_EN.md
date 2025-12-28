@@ -64,6 +64,8 @@ curl --request POST \
 - ✅ Supports all domains CORS
 - ✅ Request/response logging
 - ✅ Standardized error response format
+- ✅ Auto-removes `sk-` prefix (compatibility mechanism)
+- ✅ Customizable AI endpoint path
 
 ## API Reference
 
@@ -84,9 +86,14 @@ Connect your Git repository, EdgeOne Pages will automatically detect Node Functi
 
 In EdgeOne Pages console: **Project Settings → Environment Variables**, add:
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `CNB_REPO` | CNB repository path (owner/project/repo) | `Mintimate/code-nest/cnb-edge-gateway` |
+| Variable | Description | Example | Required |
+|----------|-------------|---------|----------|
+| `CNB_REPO` | CNB repository path (owner/project/repo) | `Mintimate/code-nest/cnb-edge-gateway` | ✅ |
+| `CNB_AI_PATH` | Custom AI endpoint path, leave empty for default | `/-/ai/chat/completions` | ❌ |
+
+> **Note**: `CNB_AI_PATH` defaults vary by endpoint:
+> - `/v1/chat/completions` → `/-/ai/chat/completions`
+> - `/v1/models` → `/-/ai/models`
 
 ### 4. Deploy
 
@@ -99,7 +106,7 @@ Push code or manually trigger deployment.
 | Configuration | Value |
 |---------------|-------|
 | Base URL | `https://your-edge-pages-domain/v1` |
-| API Key | Your CNB Token |
+| API Key | Your CNB Token (with or without `sk-` prefix) |
 
 
 ### Python (OpenAI SDK)

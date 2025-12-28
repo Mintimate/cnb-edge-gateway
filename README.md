@@ -64,6 +64,8 @@ curl --request POST \
 - ✅ 支持所有域名跨域 (CORS)
 - ✅ 请求/响应日志记录
 - ✅ 标准化错误响应格式
+- ✅ 自动移除 `sk-` 前缀（容错机制）
+- ✅ 支持自定义 AI 接口路径
 
 ## 接口说明
 
@@ -84,9 +86,14 @@ curl --request POST \
 
 在 EdgeOne Pages 控制台：**项目设置 → 环境变量** 中添加：
 
-| 变量名 | 说明 | 示例 |
-|--------|------|------|
-| `CNB_REPO` | CNB 仓库路径 (owner/project/repo) | `Mintimate/code-nest/cnb-edge-gateway` |
+| 变量名 | 说明 | 示例 | 必填 |
+|--------|------|------|------|
+| `CNB_REPO` | CNB 仓库路径 (owner/project/repo) | `Mintimate/code-nest/cnb-edge-gateway` | ✅ |
+| `CNB_AI_PATH` | 自定义 AI 接口路径，留空使用默认值 | `/-/ai/chat/completions` | ❌ |
+
+> **说明**: `CNB_AI_PATH` 默认值根据接口不同而异：
+> - `/v1/chat/completions` → `/-/ai/chat/completions`
+> - `/v1/models` → `/-/ai/models`
 
 ### 4. 部署
 
@@ -99,7 +106,7 @@ curl --request POST \
 | 配置项 | 值 |
 |--------|-----|
 | Base URL | `https://your-edge-pages-domain/v1` |
-| API Key | 你的 CNB Token |
+| API Key | 你的 CNB Token（支持带或不带 `sk-` 前缀） |
 
 
 ### Python (OpenAI SDK)

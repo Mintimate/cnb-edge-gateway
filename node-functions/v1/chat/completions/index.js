@@ -21,11 +21,13 @@ const corsHeaders = {
 /**
  * 获取 CNB API 地址
  * 环境变量 CNB_REPO 格式: owner/project/repo (例如: Mintimate/code-nest/cnb-edge-gateway)
+ * 环境变量 CNB_AI_PATH 可自定义 AI 路径，默认为 /-/ai/chat/completions
  */
 function getCnbApiUrl(env) {
   const repo = env.CNB_REPO;
   if (!repo) return null;
-  return `https://api.cnb.cool/${repo}/-/ai/chat/completions`;
+  const aiPath = env.CNB_AI_PATH || '/-/ai/chat/completions';
+  return `https://api.cnb.cool/${repo}${aiPath}`;
 }
 
 /**
