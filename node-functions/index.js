@@ -33,7 +33,7 @@ function getHtml(langData) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CNB Edge Gateway</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='grad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' style='stop-color:%23667eea;stop-opacity:1' /><stop offset='100%25' style='stop-color:%23764ba2;stop-opacity:1' /></linearGradient></defs><circle cx='50' cy='50' r='48' fill='url(%23grad)' stroke='white' stroke-width='2'/><text x='50' y='52' font-size='60' text-anchor='middle' dominant-baseline='middle'>🚀</text></svg>">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <style>
     :root {
       --bg-gradient: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
@@ -254,7 +254,9 @@ function getHtml(langData) {
 <body>
   <div class="container">
     <div class="header">
-        <div class="emoji-icon">🚀</div>
+        <div class="emoji-icon">
+          <img src="/favicon.svg" alt="Logo" width="80" height="80">
+        </div>
         <h1>CNB Edge Gateway</h1>
         <p class="subtitle">${langData.subtitle}</p>
         <span class="badge">${langData.badge}</span>
