@@ -31,6 +31,44 @@ function getCnbModelsUrl(env) {
 }
 
 /**
+ * 获取自定义模型列表
+ * 环境变量 CUSTOM_MODELS 格式: model1,model2,model3 (逗号分隔)
+ * 如果未设置，返回默认模型
+ * @returns {{ models: string[], isDefault: boolean }}
+ */
+function getCustomModels(env) {
+  const customModels = env.CUSTOM_MODELS;
+  const defaultModel = 'hunyuan-2.0-instruct';
+  
+  if (!customModels || customModels.trim() === '') {
+    return { models: [defaultModel], isDefault: true };
+  }
+  
+  const models = customModels.split(',').map(m => m.trim()).filter(m => m !== '');
+  if (models.length > 0) {
+    return { models, isDefault: false };
+  }
+  return { models: [defaultModel], isDefault: true };
+}
+
+/**
+ * 构建模型列表响应数据
+ * @param {string[]} modelIds - 模型 ID 列表
+ * @param {boolean} isDefault - 是否为保底默认模型
+ */
+function buildModelsResponse(modelIds, isDefault = false) {
+  return {
+    object: 'list',
+    data: modelIds.map(id => ({
+      id,
+      object: 'model',
+      created: Math.floor(Date.now() / 1000),
+      owned_by: isDefault ? 'cnb-default' : 'custom',
+    })),
+  };
+}
+
+/**
  * 从 Authorization 头提取 Token
  */
 function extractToken(request) {
@@ -107,20 +145,11 @@ export async function onRequestGet(context) {
     const isJson = contentType.includes('application/json');
 
     if (!cnbResponse.ok || !isJson) {
-      // CNB 不支持 models 接口或返回非 JSON 时，返回默认响应
-      logResponse('models', 200, { type: 'fallback', reason: !cnbResponse.ok ? 'not_ok' : 'not_json' });
+      // CNB 不支持 models 接口或返回非 JSON 时，返回自定义模型列表
+      const { models: customModelIds, isDefault } = getCustomModels(env);
+      logResponse('models', 200, { type: 'fallback', reason: !cnbResponse.ok ? 'not_ok' : 'not_json', count: customModelIds.length });
       return new Response(
-        JSON.stringify({
-          object: 'list',
-          data: [
-            {
-              id: 'hunyuan-2.0-instruct',
-              object: 'model',
-              created: Math.floor(Date.now() / 1000),
-              owned_by: 'cnb',
-            },
-          ],
-        }),
+        JSON.stringify(buildModelsResponse(customModelIds, isDefault)),
         {
           status: 200,
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
@@ -135,21 +164,12 @@ export async function onRequestGet(context) {
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   } catch (error) {
-    // 任何异常都返回 fallback 响应
+    // 任何异常都返回自定义模型列表
+    const { models: customModelIds, isDefault } = getCustomModels(env);
     logError('Fallback due to error', error);
-    logResponse('models', 200, { type: 'fallback', reason: 'error' });
+    logResponse('models', 200, { type: 'fallback', reason: 'error', count: customModelIds.length });
     return new Response(
-      JSON.stringify({
-        object: 'list',
-        data: [
-          {
-            id: 'hunyuan-2.0-instruct',
-            object: 'model',
-            created: Math.floor(Date.now() / 1000),
-            owned_by: 'cnb',
-          },
-        ],
-      }),
+      JSON.stringify(buildModelsResponse(customModelIds, isDefault)),
       {
         status: 200,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },

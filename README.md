@@ -90,10 +90,13 @@ curl --request POST \
 |--------|------|------|------|
 | `CNB_REPO` | CNB 仓库路径 (owner/project/repo) | `Mintimate/code-nest/cnb-edge-gateway` | ✅ |
 | `CNB_AI_PATH` | 自定义 AI 接口路径，留空使用默认值 | `/-/ai/chat/completions` | ❌ |
+| `CUSTOM_MODELS` | 自定义模型列表，逗号分隔 | `model-a,model-b,model-c` | ❌ |
 
-> **说明**: `CNB_AI_PATH` 默认值根据接口不同而异：
-> - `/v1/chat/completions` → `/-/ai/chat/completions`
-> - `/v1/models` → `/-/ai/models`
+> **说明**: 
+> - `CNB_AI_PATH` 默认值根据接口不同而异：
+>   - `/v1/chat/completions` → `/-/ai/chat/completions`
+>   - `/v1/models` → `/-/ai/models`
+> - `CUSTOM_MODELS` 用于 `/v1/models` 接口返回的模型列表。如果设置了该变量，`owned_by` 为 `custom`；未设置时使用默认模型 `hunyuan-2.0-instruct`，`owned_by` 为 `cnb-default`。
 
 ### 4. 部署
 
