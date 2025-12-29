@@ -15,14 +15,14 @@ const I18N = {
     subtitle: 'EdgeOne Pages Node Functions Proxy for CNB LLM API',
     badge: 'OpenAI Standard Compatible',
     sectionTitle: 'API Endpoints',
-    footer: 'Made by <a href="https://github.com/Mintimate" target="_blank">Mintimate</a> · Powered by EdgeOne Pages'
+    footer: 'Made by <a href="https://www.mintimate.cn" target="_blank">Mintimate</a> · Powered by EdgeOne Pages'
   },
   zh: {
     lang: 'zh-CN',
     subtitle: '基于 EdgeOne Pages Node Functions 的 CNB 大模型 API 代理',
     badge: '兼容 OpenAI 标准接口',
     sectionTitle: 'API 接口列表',
-    footer: '由 <a href="https://github.com/Mintimate" target="_blank">Mintimate</a> 制作 · 基于 EdgeOne Pages 驱动'
+    footer: '由 <a href="https://www.mintimate.cn" target="_blank">Mintimate</a> 制作 · 基于 EdgeOne Pages 驱动'
   }
 };
 
