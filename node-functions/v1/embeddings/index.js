@@ -59,7 +59,7 @@ async function fetchEmbedding(input, model, token, cnbApiUrl) {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json; charset=utf-8',
     },
-    body: JSON.stringify({ model, input }),
+    body: JSON.stringify({ model, input, text: input }),
     redirect: 'manual',
   });
 
@@ -98,6 +98,20 @@ async function fetchEmbedding(input, model, token, cnbApiUrl) {
 
   const data = await response.json();
   
+  // Compatibility fix: convert {"embeddings": []} to {"data": [{embedding: ...}]}
+  if (data && data.embeddings && Array.isArray(data.embeddings) && !data.data) {
+      data.data = data.embeddings.map((embedding, index) => ({
+          object: 'embedding',
+          embedding: embedding,
+          index: index
+      }));
+      delete data.embeddings;
+      // Ensure standard response structure
+      if (!data.object) data.object = 'list';
+      if (!data.model) data.model = 'unknown';
+      if (!data.usage) data.usage = { prompt_tokens: 0, total_tokens: 0 };
+  }
+
   // Compatibility fix for string embedding
   if (data && data.data && Array.isArray(data.data)) {
       data.data.forEach(item => {
@@ -136,7 +150,8 @@ export async function onRequestPost(context) {
   try {
     const body = await request.json();
     const model = body.model || 'default';
-    const input = body.input;
+    // 兼容 input 和 text 两种字段名
+    const input = body.input || body.text;
 
     logEvent('embeddings', clientIp, { model, input_length: Array.isArray(input) ? input.length : 1 });
 
