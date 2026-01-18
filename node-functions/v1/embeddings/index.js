@@ -20,14 +20,11 @@ const corsHeaders = {
 
 /**
  * 获取 CNB API 地址
- * 环境变量 CNB_REPO 格式: owner/project/repo
- * 环境变量 CNB_EMBEDDINGS_PATH 必须设置 (例如: /-/ai/embeddings)
  */
 function getCnbApiUrl(env) {
   const repo = env.CNB_REPO;
   const path = env.CNB_EMBEDDINGS_PATH;
   if (!repo || !path) return null;
-  // 确保 repo 不包含前导或尾随斜杠，path 包含前导斜杠
   return `https://api.cnb.cool/${repo}${path}`;
 }
 
@@ -41,27 +38,80 @@ function extractToken(request) {
   if (authHeader.startsWith('Bearer ')) {
     token = authHeader.slice(7);
   }
-  // Remove 'sk-' prefix if present for compatibility
   if (token.startsWith('sk-')) {
-    console.log(LOG_PREFIX, 'Compatibility: Removed sk- prefix from token (容错机制)');
     token = token.slice(3);
   }
   return token;
 }
 
-/**
- * 返回错误响应（OpenAI 格式）
- */
 function errorResponse(message, type = 'invalid_request_error', status = 400) {
   return new Response(
-    JSON.stringify({
-      error: { message, type, param: null, code: null },
-    }),
-    {
-      status,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders },
-    }
+    JSON.stringify({ error: { message, type, param: null, code: null } }),
+    { status, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
   );
+}
+
+// 处理单个 Embedding 请求
+async function fetchEmbedding(input, model, token, cnbApiUrl) {
+  const response = await fetch(cnbApiUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json; charset=utf-8',
+    },
+    body: JSON.stringify({ model, input }),
+    redirect: 'manual',
+  });
+
+  if (!response.ok) {
+    let errorMsg = `Upstream returned ${response.status}`;
+    let errorCode = response.status;
+    
+    // Redirect handling
+    if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get('Location');
+        if (location) {
+            errorMsg += `. Redirect to: ${location}`;
+            if (location.includes('signin') || location.includes('login')) {
+                errorMsg += ' (Probable cause: Invalid Token or CNB_REPO)';
+            }
+        }
+    }
+
+    try {
+      const errorText = await response.text();
+      if (errorText) {
+        try {
+          const errorJson = JSON.parse(errorText);
+          if (errorJson.msg) errorMsg = errorJson.msg;
+          else if (errorJson.error?.message) errorMsg = errorJson.error.message;
+          else errorMsg = errorText;
+          if (errorJson.code) errorCode = errorJson.code;
+        } catch {
+          errorMsg = errorText;
+        }
+      }
+    } catch (e) { /* ignore */ }
+    
+    throw { message: errorMsg, code: errorCode, status: response.status };
+  }
+
+  const data = await response.json();
+  
+  // Compatibility fix for string embedding
+  if (data && data.data && Array.isArray(data.data)) {
+      data.data.forEach(item => {
+          if (item.embedding && typeof item.embedding === 'string') {
+              try {
+                   const str = item.embedding.trim();
+                   if (str.startsWith('[') && str.endsWith(']')) {
+                       item.embedding = JSON.parse(str);
+                   } 
+              } catch (e) { }
+          }
+      });
+  }
+  return data;
 }
 
 // OPTIONS 预检请求
@@ -76,108 +126,95 @@ export async function onRequestPost(context) {
 
   logRequest('POST', url.pathname, url.search);
 
-  // 1. 检查环境变量 CNB_REPO
-  if (!env.CNB_REPO) {
-    logError('Configuration error', 'CNB_REPO environment variable is not set');
-    logResponse('embeddings', 500, { error: 'config_error', detail: 'CNB_REPO not set' });
-    return errorResponse(
-      'Server configuration error: CNB_REPO environment variable is not set. Please contact the administrator.',
-      'server_error',
-      500
-    );
-  }
-
-  // 2. 检查环境变量 CNB_EMBEDDINGS_PATH (强制要求)
-  if (!env.CNB_EMBEDDINGS_PATH) {
-     logEvent('embeddings', clientIp, { error: 'feature_not_enabled', detail: 'CNB_EMBEDDINGS_PATH not set' });
-     return errorResponse(
-       'Embeddings feature is not enabled. CNB_EMBEDDINGS_PATH environment variable is required.',
-       'server_error', 
-       501
-     );
-  }
-
+  if (!env.CNB_REPO) return errorResponse('CNB_REPO not set', 'server_error', 500);
+  if (!env.CNB_EMBEDDINGS_PATH) return errorResponse('CNB_EMBEDDINGS_PATH not set', 'server_error', 501);
+  
   const cnbApiUrl = getCnbApiUrl(env);
-  if (!cnbApiUrl) {
-       // Should be covered by above checks
-       return errorResponse('Configuration Error', 'server_error', 500);
-  }
-
   const token = extractToken(request);
-  if (!token) {
-    logEvent('embeddings', clientIp, { error: 'missing_token' });
-    logResponse('embeddings', 401, { error: 'authentication_error' });
-    return errorResponse(
-      'Missing Authorization header. Please provide your CNB token as Bearer token.',
-      'authentication_error',
-      401
-    );
-  }
+  if (!token) return errorResponse('Missing Authorization', 'authentication_error', 401);
 
   try {
     const body = await request.json();
     const model = body.model || 'default';
+    const input = body.input;
 
-    logEvent('embeddings', clientIp, { model, input_length: Array.isArray(body.input) ? body.input.length : 1 });
+    logEvent('embeddings', clientIp, { model, input_length: Array.isArray(input) ? input.length : 1 });
 
-    const cnbResponse = await fetch(cnbApiUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json; charset=utf-8',
-      },
-      body: JSON.stringify(body),
-    });
+    let finalData = {
+      object: 'list',
+      data: [],
+      model: model,
+      usage: { prompt_tokens: 0, total_tokens: 0 }
+    };
 
-    if (!cnbResponse.ok) {
-      const errorText = await cnbResponse.text();
-      logError('CNB API error', { status: cnbResponse.status, body: errorText });
-      logResponse('embeddings', cnbResponse.status, { error: 'upstream_error' });
-      try {
-        const errorJson = JSON.parse(errorText);
-        return new Response(JSON.stringify(errorJson), {
-          status: cnbResponse.status,
-          headers: { 'Content-Type': 'application/json', ...corsHeaders },
-        });
-      } catch {
-        return errorResponse(`Upstream API error: ${errorText}`, 'api_error', cnbResponse.status);
-      }
-    }
-
-    const data = await cnbResponse.json();
-
-    // 兼容性处理：Cherry Studio 等客户端可能遇到 embedding 字段为字符串的情况
-    // 自动检测并修复：如果 embedding 是字符串，尝试解析为 JSON 数组
-    if (data && data.data && Array.isArray(data.data)) {
-        let fixed = false;
-        data.data.forEach(item => {
-            if (item.embedding && typeof item.embedding === 'string') {
-                try {
-                     // 简单 heuristics：如果是 [ 开头 ] 结尾，可能是 JSON 字符串
-                     const str = item.embedding.trim();
-                     if (str.startsWith('[') && str.endsWith(']')) {
-                         item.embedding = JSON.parse(str);
-                         fixed = true;
-                     } 
-                } catch (e) {
-                    console.warn(LOG_PREFIX, 'Compatibility: Failed to parse string embedding', e);
-                }
-            }
-        });
-        if (fixed) {
-             console.log(LOG_PREFIX, 'Compatibility: Parsed stringified embedding to array to fix client unmarshal errors');
+    // 如果 input 是字符串数组（批处理），并且长度 > 1，则拆分请求
+    // 注意：如果 input 本身是单个字符串，Array.isArray 为 false
+    // 如果 input 是 tokenize 后的单个输入（数字数组），我们应该视为单个请求（Array.isArray 但元素是 numbers）
+    let isBatch = false;
+    if (Array.isArray(input) && input.length > 0) {
+        // 简单启发式：如果第一个元素是字符串，则认为是批量字符串请求
+        if (typeof input[0] === 'string') {
+            isBatch = true;
         }
     }
 
-    logResponse('embeddings', 200, { usage: data.usage });
-    return new Response(JSON.stringify(data), {
+    if (isBatch) {
+        console.log(LOG_PREFIX, 'Batch processing detected, splitting into', input.length, 'requests');
+        // 并发请求
+        const promises = input.map(str => fetchEmbedding(str, model, token, cnbApiUrl));
+        const results = await Promise.all(promises);
+        
+        // 合并结果
+        results.forEach((res, index) => {
+            if (res.data && res.data[0]) {
+                const embeddingObj = res.data[0];
+                embeddingObj.index = index; // 重置 index
+                finalData.data.push(embeddingObj);
+            }
+            if (res.usage) {
+                finalData.usage.prompt_tokens += (res.usage.prompt_tokens || 0);
+                finalData.usage.total_tokens += (res.usage.total_tokens || 0);
+            }
+        });
+        // 继承最后一个 response 的其他属性（如 model）
+        if (results.length > 0 && results[0].model) {
+            finalData.model = results[0].model;
+        }
+
+    } else {
+        // 单个请求
+        const res = await fetchEmbedding(input, model, token, cnbApiUrl);
+        finalData = res;
+    }
+
+    logResponse('embeddings', 200, { usage: finalData.usage });
+    return new Response(JSON.stringify(finalData), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
 
   } catch (error) {
-    logError('Internal server error', error);
-    logResponse('embeddings', 500, { error: 'server_error' });
-    return errorResponse(`Internal server error: ${error.message}`, 'server_error', 500);
+    // 捕获 fetchEmbedding 抛出的自定义错误对象，或者是其他 runtime error
+    const status = error.status || 500;
+    const msg = error.message || error.toString();
+    const code = error.code || null;
+    
+    logError('Request failed', error);
+    logResponse('embeddings', status, { error: 'upstream_error', detail: msg });
+    
+    return new Response(
+      JSON.stringify({
+        error: {
+          message: msg,
+          type: 'upstream_error',
+          param: null,
+          code: code,
+        },
+      }),
+      {
+        status: status,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      }
+    );
   }
 }

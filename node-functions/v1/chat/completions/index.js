@@ -112,21 +112,65 @@ export async function onRequestPost(context) {
         'Content-Type': 'application/json; charset=utf-8',
       },
       body: JSON.stringify(body),
+      redirect: 'manual', // 禁止跟随重定向，防止上游异常跳转导致返回 200
     });
 
     if (!cnbResponse.ok) {
-      const errorText = await cnbResponse.text();
-      logError('CNB API error', { status: cnbResponse.status, body: errorText });
-      logResponse('chat_completions', cnbResponse.status, { error: 'upstream_error' });
+      let errorMsg = `Upstream returned ${cnbResponse.status}`;
+      let errorCode = cnbResponse.status;
+      
+      if (cnbResponse.status >= 300 && cnbResponse.status < 400) {
+          const location = cnbResponse.headers.get('Location');
+          if (location) {
+              errorMsg += `. Redirect to: ${location}`;
+              if (location.includes('signin') || location.includes('login')) {
+                  errorMsg += ' (Probable cause: Invalid Token or CNB_REPO)';
+              }
+          }
+      }
+
+      
       try {
-        const errorJson = JSON.parse(errorText);
-        return new Response(JSON.stringify(errorJson), {
+        const errorText = await cnbResponse.text();
+        logError('CNB API error', { status: cnbResponse.status, body: errorText });
+        
+        if (errorText) {
+          try {
+            const errorJson = JSON.parse(errorText);
+            // 优先使用 CNB 返回的 msg
+            if (errorJson.msg) {
+              errorMsg = errorJson.msg;
+            } else if (errorJson.error && errorJson.error.message) {
+              errorMsg = errorJson.error.message;
+            } else {
+              errorMsg = errorText; 
+            }
+            if (errorJson.code) errorCode = errorJson.code;
+          } catch {
+            errorMsg = errorText;
+          }
+        }
+      } catch (e) {
+        logError('Failed to read error body', e);
+      }
+
+      logResponse('chat_completions', cnbResponse.status, { error: 'upstream_error', detail: errorMsg });
+
+      // 构造 OpenAI 标准错误响应
+      return new Response(
+        JSON.stringify({
+          error: {
+            message: errorMsg,
+            type: 'upstream_error',
+            param: null,
+            code: errorCode,
+          },
+        }),
+        {
           status: cnbResponse.status,
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
-        });
-      } catch {
-        return errorResponse(`Upstream API error: ${errorText}`, 'api_error', cnbResponse.status);
-      }
+        }
+      );
     }
 
     if (isStream) {
