@@ -72,6 +72,7 @@ curl --request POST \
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/v1/chat/completions` | POST | Chat completions endpoint |
+| `/v1/embeddings` | POST | Embeddings endpoint |
 | `/v1/models` | GET | Models list endpoint |
 
 ## Deployment
@@ -90,12 +91,14 @@ In EdgeOne Pages console: **Project Settings → Environment Variables**, add:
 |----------|-------------|---------|----------|
 | `CNB_REPO` | CNB repository path (owner/project/repo) | `Mintimate/code-nest/cnb-edge-gateway` | ✅ |
 | `CNB_AI_PATH` | Custom AI endpoint path, leave empty for default | `/-/ai/chat/completions` | ❌ |
+| `CNB_EMBEDDINGS_PATH` | Embeddings endpoint path, required for embeddings feature | No default | ❌ |
 | `CUSTOM_MODELS` | Custom model list, comma-separated | `model-a,model-b,model-c` | ❌ |
 
 > **Note**: 
 > - `CNB_AI_PATH` defaults vary by endpoint:
 >   - `/v1/chat/completions` → `/-/ai/chat/completions`
 >   - `/v1/models` → `/-/ai/models`
+> - `CNB_EMBEDDINGS_PATH` is used for the embeddings endpoint. It is required if you want to use the embeddings feature (e.g., `/-/ai/embeddings`).
 > - `CUSTOM_MODELS` is used for the model list returned by `/v1/models` endpoint. If set, `owned_by` will be `custom`; if not set, the default model `hunyuan-2.0-instruct` is used with `owned_by` as `cnb-default`.
 
 ### 4. Deploy
@@ -189,6 +192,8 @@ cnb-edge-gateway/
 │       ├── chat/
 │       │   └── completions/
 │       │       └── index.js    # POST /v1/chat/completions
+│       ├── embeddings/
+│       │   └── index.js        # POST /v1/embeddings
 │       └── models/
 │           └── index.js        # GET /v1/models
 └── README.md

@@ -270,6 +270,10 @@ function getHtml(langData) {
             <span class="path">/v1/chat/completions</span>
         </div>
         <div class="endpoint">
+            <span class="method post">POST</span>
+            <span class="path">/v1/embeddings</span>
+        </div>
+        <div class="endpoint">
             <span class="method get">GET</span>
             <span class="path">/v1/models</span>
         </div>

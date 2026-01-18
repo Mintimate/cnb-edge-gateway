@@ -72,6 +72,7 @@ curl --request POST \
 | 接口 | 方法 | 说明 |
 |------|------|------|
 | `/v1/chat/completions` | POST | 聊天补全接口 |
+| `/v1/embeddings` | POST | 向量嵌入接口 |
 | `/v1/models` | GET | 模型列表接口 |
 
 ## 部署
@@ -90,12 +91,14 @@ curl --request POST \
 |--------|------|------|------|
 | `CNB_REPO` | CNB 仓库路径 (owner/project/repo) | `Mintimate/code-nest/cnb-edge-gateway` | ✅ |
 | `CNB_AI_PATH` | 自定义 AI 接口路径，留空使用默认值 | `/-/ai/chat/completions` | ❌ |
+| `CNB_EMBEDDINGS_PATH` | 向量接口路径，开启向量功能必填 | 无默认值 | ❌ |
 | `CUSTOM_MODELS` | 自定义模型列表，逗号分隔 | `model-a,model-b,model-c` | ❌ |
 
 > **说明**: 
 > - `CNB_AI_PATH` 默认值根据接口不同而异：
 >   - `/v1/chat/completions` → `/-/ai/chat/completions`
 >   - `/v1/models` → `/-/ai/models`
+> - `CNB_EMBEDDINGS_PATH` 用于向量嵌入接口，如需使用该功能必须配置（例如：`/-/ai/embeddings`）
 > - `CUSTOM_MODELS` 用于 `/v1/models` 接口返回的模型列表。如果设置了该变量，`owned_by` 为 `custom`；未设置时使用默认模型 `hunyuan-2.0-instruct`，`owned_by` 为 `cnb-default`。
 
 ### 4. 部署
@@ -189,6 +192,8 @@ cnb-edge-gateway/
 │       ├── chat/
 │       │   └── completions/
 │       │       └── index.js    # POST /v1/chat/completions
+│       ├── embeddings/
+│       │   └── index.js        # POST /v1/embeddings
 │       └── models/
 │           └── index.js        # GET /v1/models
 └── README.md
