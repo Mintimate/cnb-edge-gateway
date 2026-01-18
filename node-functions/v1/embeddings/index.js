@@ -100,15 +100,28 @@ async function fetchEmbedding(input, model, token, cnbApiUrl) {
   
   // Compatibility fix: convert {"embeddings": []} to {"data": [{embedding: ...}]}
   if (data && data.embeddings && Array.isArray(data.embeddings) && !data.data) {
-      data.data = data.embeddings.map((embedding, index) => ({
-          object: 'embedding',
-          embedding: embedding,
-          index: index
-      }));
+      // 判断 embeddings 是单个向量还是多个向量的数组
+      // 如果第一个元素是数字，说明整个 embeddings 就是一个向量
+      // 如果第一个元素是数组，说明 embeddings 包含多个向量
+      if (data.embeddings.length > 0 && typeof data.embeddings[0] === 'number') {
+          // 单个 embedding 向量：[0.1, 0.2, 0.3, ...]
+          data.data = [{
+              object: 'embedding',
+              embedding: data.embeddings,
+              index: 0
+          }];
+      } else {
+          // 多个 embedding 向量：[[0.1, 0.2, ...], [0.3, 0.4, ...]]
+          data.data = data.embeddings.map((embedding, index) => ({
+              object: 'embedding',
+              embedding: embedding,
+              index: index
+          }));
+      }
       delete data.embeddings;
       // Ensure standard response structure
       if (!data.object) data.object = 'list';
-      if (!data.model) data.model = 'unknown';
+      if (!data.model) data.model = 'hunyuan-embedding';
       if (!data.usage) data.usage = { prompt_tokens: 0, total_tokens: 0 };
   }
 
